@@ -1,0 +1,36 @@
+---
+title: "networkhub_string"
+author: 
+  - name: Your name
+    affiliation:
+    - Your institution
+    email: your.email@somewhere.com
+output: 
+  rmarkdown::html_document:
+  # bookdown::html_document2:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    # code_folding: show
+    code_download: true
+    global_numbering: true
+    number_sections: false
+editor_options: 
+  chunk_output_type: console
+bibliography: NetworkHub.bib
+link-citations: true
+date: "`r BiocStyle::doc_date()`"
+package: "`r BiocStyle::pkg_ver('NetworkHub')`"
+vignette: >
+  %\VignetteIndexEntry{networkhub_string}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}  
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+    collapse = TRUE,
+    comment = "#>",
+    crop = NULL ## Related to https://stat.ethz.ch/pipermail/bioc-devel/2020-April/016656.html
+)
+```

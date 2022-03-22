@@ -1,0 +1,63 @@
+# StringHub
+
+Starting from https://www.string-db.org/cgi/download
+
+## Human
+
+https://www.string-db.org/cgi/download?species_text=Homo+sapiens
+
+```{r}
+download.file("https://stringdb-static.org/download/protein.links.v11.5/9606.protein.links.v11.5.txt.gz", destfile = "9606.protein.links.v11.5.txt.gz")
+download.file("https://stringdb-static.org/download/protein.links.detailed.v11.5/9606.protein.links.detailed.v11.5.txt.gz", destfile = "9606.protein.links.detailed.v11.5.txt.gz")
+download.file("https://stringdb-static.org/download/protein.links.full.v11.5/9606.protein.links.full.v11.5.txt.gz", destfile = "9606.protein.links.full.v11.5.txt.gz")
+```
+
+```{r}
+intdata_human <- vroom::vroom("9606.protein.links.v11.5.txt.gz")
+intdata_human_detailed <- vroom::vroom("9606.protein.links.detailed.v11.5.txt.gz")
+intdata_human_full <- vroom::vroom("9606.protein.links.full.v11.5.txt.gz")
+
+
+colnames(intdata_human)
+colnames(intdata_human_detailed)
+colnames(intdata_human_full)
+
+pryr::object_size(intdata_human)
+pryr::object_size(intdata_human_detailed)
+pryr::object_size(intdata_human_full)
+
+# replace string identifiers
+
+download.file("https://stringdb-static.org/download/protein.info.v11.5/9606.protein.info.v11.5.txt.gz", destfile = "9606.protein.info.v11.5.txt.gz")
+download.file("https://stringdb-static.org/download/protein.aliases.v11.5/9606.protein.aliases.v11.5.txt.gz", destfile = "9606.protein.aliases.v11.5.txt.gz")
+
+pinfo_human <- vroom::vroom("9606.protein.info.v11.5.txt.gz")
+pinfo_human_detailed <- vroom::vroom("9606.protein.aliases.v11.5.txt.gz")
+
+head(pinfo_human)
+head(pinfo_human_detailed)
+
+# working w a subset
+
+ihfset <- intdata_human_full[1:2000, ]
+head(ihfset)
+
+hist(ihfset$combined_score, breaks = 100)
+
+ihset <- intdata_human[1:2000, ]
+head(ihset)
+
+ihset$p1_genename <- pinfo_human$preferred_name[match(ihset$protein1, pinfo_human$`#string_protein_id`)]
+ihset$p2_genename <- pinfo_human$preferred_name[match(ihset$protein2, pinfo_human$`#string_protein_id`)]
+
+# thought: adding entrez ids as well? for better interoperability?
+  
+```
+
+
+
+
+General info
+
+https://stringdb-static.org/download/species.v11.5.txt
+
