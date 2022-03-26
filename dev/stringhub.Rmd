@@ -6,10 +6,18 @@ Starting from https://www.string-db.org/cgi/download
 
 https://www.string-db.org/cgi/download?species_text=Homo+sapiens
 
-```{r}
+This chunk is to be run manually, once
+
+```{r eval=FALSE}
+setwd("dev")
+
 download.file("https://stringdb-static.org/download/protein.links.v11.5/9606.protein.links.v11.5.txt.gz", destfile = "9606.protein.links.v11.5.txt.gz")
 download.file("https://stringdb-static.org/download/protein.links.detailed.v11.5/9606.protein.links.detailed.v11.5.txt.gz", destfile = "9606.protein.links.detailed.v11.5.txt.gz")
 download.file("https://stringdb-static.org/download/protein.links.full.v11.5/9606.protein.links.full.v11.5.txt.gz", destfile = "9606.protein.links.full.v11.5.txt.gz")
+
+download.file("https://stringdb-static.org/download/protein.info.v11.5/9606.protein.info.v11.5.txt.gz", destfile = "9606.protein.info.v11.5.txt.gz")
+download.file("https://stringdb-static.org/download/protein.aliases.v11.5/9606.protein.aliases.v11.5.txt.gz", destfile = "9606.protein.aliases.v11.5.txt.gz")
+
 ```
 
 ```{r}
@@ -27,9 +35,6 @@ pryr::object_size(intdata_human_detailed)
 pryr::object_size(intdata_human_full)
 
 # replace string identifiers
-
-download.file("https://stringdb-static.org/download/protein.info.v11.5/9606.protein.info.v11.5.txt.gz", destfile = "9606.protein.info.v11.5.txt.gz")
-download.file("https://stringdb-static.org/download/protein.aliases.v11.5/9606.protein.aliases.v11.5.txt.gz", destfile = "9606.protein.aliases.v11.5.txt.gz")
 
 pinfo_human <- vroom::vroom("9606.protein.info.v11.5.txt.gz")
 pinfo_human_detailed <- vroom::vroom("9606.protein.aliases.v11.5.txt.gz")
@@ -54,10 +59,205 @@ ihset$p2_genename <- pinfo_human$preferred_name[match(ihset$protein2, pinfo_huma
   
 ```
 
-
-
-
 General info
 
 https://stringdb-static.org/download/species.v11.5.txt
+
+### Via STRINGdb
+
+```{r}
+library(STRINGdb)
+
+# needs to specify explicitly, could be autocreated
+dir.create("sdb_human")
+string_db <- STRINGdb$new(version="11", species=9606,
+                          score_threshold=200, input_directory="sdb_human")
+
+STRINGdb$methods()
+STRINGdb$help("get_graph")
+
+sdbg <- string_db$get_graph()
+
+```
+
+### From the manually downloaded files
+
+Becomes a little more transparent what really goes on
+
+```{r}
+PPI <- read.table("sdb_human/9606.protein.links.v11.0.txt.gz", sep = " ",
+                  header=TRUE, stringsAsFactors=FALSE, fill = TRUE)
+pryr::object_size(sdbg)
+pryr::object_size(PPI)
+```
+
+### Focusing on a subset of the graph
+
+Using the example in STRINGdb to showcase what I would like to do often...
+
+```{r}
+data(diff_exp_example1)
+head(diff_exp_example1)
+example1_mapped <- string_db$map(diff_exp_example1, "gene", 
+                                 removeUnmappedRows = TRUE)
+
+hits <- example1_mapped$STRING_id[1:200]
+hits
+
+string_db$plot_network(hits)
+
+score_threshold <- 200
+
+PPIselected <- PPI[PPI$combined_score >= score_threshold,]
+dim(PPI)
+dim(PPIselected)
+
+library("igraph")
+
+sdbg
+
+myg <- igraph::graph.data.frame(d = PPIselected, directed = FALSE)
+myg
+sdbg
+
+subg <- igraph::induced.subgraph(sdbg, which(V(sdbg)$name %in% hits))
+subg
+
+# 784 is 392*2, am I using the subgraph function wrong?
+
+# why 199 vs 200?!
+
+intersect(V(sdbg)$name, hits)
+```
+
+Starting to have fun with interactive networks...
+
+```{r}
+visNetwork::visIgraph(subg)
+
+V(subg)
+str(V(subg))
+
+# putting on top some more interesting/readable info
+node_info <- vroom::vroom("9606.protein.info.v11.5.txt.gz")
+node_info$preferred_name[match(V(subg)$name, node_info$`#string_protein_id`)]
+
+V(subg)$name <- 
+  node_info$preferred_name[match(V(subg)$name, node_info$`#string_protein_id`)]
+
+visNetwork::visIgraph(subg)
+
+library("magrittr")
+library("visNetwork")
+visNetwork::visIgraph(subg) %>%
+  visOptions(highlightNearest = list(enabled = TRUE,
+                                     degree = 1,
+                                     hover = TRUE),
+             nodesIdSelection = TRUE)
+
+# re-sort the nodes alphabetically? makes sense
+rank_gs <- rank(V(subg)$name)
+subg <- permute.vertices(subg, rank_gs)
+visNetwork::visIgraph(subg) %>%
+  visOptions(highlightNearest = list(enabled = TRUE,
+                                     degree = 1,
+                                     hover = TRUE),
+             nodesIdSelection = TRUE)
+```
+
+With a smaller set, to check in detail:
+
+```{r}
+hits <- example1_mapped$STRING_id[1:100]
+hits
+string_db$plot_network( hits )
+subg <- igraph::induced.subgraph(sdbg, which(V(sdbg)$name %in% hits))
+subg
+
+V(subg)$name <- node_info$preferred_name[match(V(subg)$name, node_info$`#string_protein_id`)]
+
+# re-sort the nodes alphabetically? makes sense
+rank_gs <- rank(V(subg)$name)
+subg <- permute.vertices(subg, rank_gs)
+
+visNetwork::visIgraph(subg) %>%
+  visOptions(highlightNearest = list(enabled = TRUE,
+                                     degree = 1,
+                                     hover = TRUE),
+             nodesIdSelection = TRUE)
+
+# double edges amount?!
+subg <- simplify(subg)
+```
+
+Now: putting on top the info from the expression values and their changes
+
+```{r}
+hits
+# different colors for the nodes in function of their logFC
+set.seed(42)
+fcs_genes <- rnorm(mean = 0, sd = 3, n = length(hits))
+fcs_genes
+
+mypal <- rev(scales::alpha(
+  colorRampPalette(RColorBrewer::brewer.pal(name = "RdYlBu", 11))(50), 0.4
+))
+
+V(subg)$color <- GeneTonic::map2color(fcs_genes, mypal, limits = c(-4, 4))
+
+visNetwork::visIgraph(subg) %>%
+  visOptions(highlightNearest = list(enabled = TRUE,
+                                     degree = 1,
+                                     hover = TRUE),
+             nodesIdSelection = TRUE)
+
+# title for tooltips
+V(subg)$title <- NA
+
+V(subg)$title <- paste0(
+  "<h4>", V(subg)$name, "</h4><br>",
+  "logFC = ", format(round(fcs_genes, 2), nsmall = 2)
+)
+
+visNetwork::visIgraph(subg) %>%
+  visOptions(highlightNearest = list(enabled = TRUE,
+                                     degree = 1,
+                                     hover = TRUE),
+             nodesIdSelection = TRUE)
+```
+
+Coloring "different things" - a la payload, using the halo?
+
+```{r}
+subg <- igraph::induced.subgraph(sdbg, which(V(sdbg)$name %in% hits))
+subg
+subg <- igraph::simplify(subg)
+V(subg)$name <- node_info$preferred_name[match(V(subg)$name, node_info$`#string_protein_id`)]
+# re-sort the nodes alphabetically? makes sense
+rank_gs <- rank(V(subg)$name)
+subg <- permute.vertices(subg, rank_gs)
+
+V(subg)$borderWidth  <- 5
+V(subg)$color.border <- GeneTonic::map2color(fcs_genes, mypal, limits = c(-4, 4))
+visNetwork::visIgraph(subg) %>%
+  visOptions(highlightNearest = list(enabled = TRUE,
+                                     degree = 1,
+                                     hover = TRUE),
+             nodesIdSelection = TRUE)
+
+# title for tooltips
+V(subg)$title <- NA
+V(subg)$title <- paste0(
+  "<h4>", V(subg)$name, "</h4><br>",
+  "logFC = ", format(round(fcs_genes, 2), nsmall = 2)
+)
+
+visNetwork::visIgraph(subg) %>%
+  visOptions(highlightNearest = list(enabled = TRUE,
+                                     degree = 1,
+                                     hover = TRUE),
+             nodesIdSelection = TRUE)
+
+```
+
 
