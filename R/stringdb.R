@@ -292,3 +292,115 @@ create_annotation_from_STRINGDBaccessory <- function(accessory_info) {
 }
 
 
+
+
+
+# from graph data to real graphs ------------------------------------------
+
+#' Title
+#'
+#' @param graph_data 
+#' @param output_format 
+#' @param min_score_threshold 
+#' @param subset_nodes must be a vector of graph nodes
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' min_score_threshold <- 600
+#' output_format <- "igraph"
+#' 
+#' graph_data <- get_networkdata_STRINGDB(species = "Homo sapiens",
+#'                                        version = "11.5")
+#' 
+#' data(res_de_macrophage, package = "GeneTonic")
+#' res_de <- res_macrophage_IFNg_vs_naive
+#' top_de_genes <- na.omit(GeneTonic::deseqresult2df(res_de)[1:150, "SYMBOL"])
+#' 
+#' ## todo: change this one with the matching
+#' 
+#' library(STRINGdb)
+#' string_db <- STRINGdb$new(version="11", species=9606,
+#'   score_threshold=200, input_directory="sdb_human")
+#' data(diff_exp_example1)
+#' head(diff_exp_example1)
+#' example1_mapped <- string_db$map(diff_exp_example1, "gene", 
+#'                              removeUnmappedRows = TRUE)
+#' hits <- example1_mapped$STRING_id[1:200]
+#' hits
+#' 
+#' top_proteins <- hits
+#' 
+#' network_all <- build_graph_STRINGDB(graph_data = graph_data, 
+#'                      output_format = "igraph",
+#'                      min_score_threshold = 600)
+#'                      
+#' network_desubset <- build_graph_STRINGDB(graph_data = graph_data, 
+#'                      output_format = "igraph",
+#'                      min_score_threshold = 600,
+#'                      subset_nodes = top_proteins)
+#'                      
+build_graph_STRINGDB <- function(graph_data,
+                                 output_format = c("igraph", "graphnel", "sif"),
+                                 min_score_threshold = NULL,
+                                 ## alternatives? native for cytoscape?
+                                 subset_nodes = NULL) {
+  # graph data comes in from the reading-in functionality
+  
+  # some check to do on the...
+  colnames(graph_data)
+  
+  # inspect histogram for the scores?
+  hist(graph_data$combined_score, breaks = 50)
+  score_threshold <- 200
+  
+  if (!is.null(min_score_threshold)) {
+    graph_data_processed <- graph_data[graph_data$combined_score >= min_score_threshold,]
+  } else {
+    graph_data_processed <- graph_data
+  }
+  
+  dim(graph_data)
+  dim(graph_data_processed)
+  
+  whole_graph <- 
+    igraph::graph.data.frame(d = graph_data_processed, directed = FALSE)
+  
+  if (length(subset_nodes) > 0) {
+    my_graph <- igraph::induced.subgraph(whole_graph, 
+                                         which(V(whole_graph)$name %in% subset_nodes))
+  } else {
+    my_graph <- whole_graph
+  }
+  
+  # simplify by avoiding multiple entries?
+  ## could make it smaller and easier to handle, without losing too much/at all in info
+  my_graph <- igraph::simplify(my_graph)
+  
+  return(my_graph)
+}
+
+build_graph <- function(graph_data,
+                        data_source = "STRINGDB",
+                        output_format = c("igraph", "graphnel", "sif"),
+                        min_score_threshold,
+                        ## alternatives? native for cytoscape?
+                        subset_nodes) {
+  
+  if (data_source == "STRINGDB") {
+    
+    my_graph <- build_graph_STRINGDB(graph_data = graph_data,
+                                     output_format = output_format,
+                                     min_score_threshold = min_score_threshold,
+                                     subset_nodes = subset_nodes)
+    
+  } else {
+    
+    # TBD
+    
+  }
+  
+  return(my_graph)
+}
+
