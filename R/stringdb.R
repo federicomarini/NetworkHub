@@ -404,3 +404,149 @@ build_graph <- function(graph_data,
   return(my_graph)
 }
 
+
+# Enhancing graphs and interacting with them ------------------------------
+
+# de object goes into the SE
+# choose the graph
+# annotation to map
+# rowdata, choose what to plot upon (logFC, e.g.)
+# expression data - choose assay? via assay_name
+#
+#' graph, se, map rowData ("DE results") and potentially gene-wise expression values
+#' 
+#' g <- de_graph # from the vignette
+#' se <- se_macrophage
+#' annotation_df <- anno_df_string
+#' 
+#' rowdata_to_map <- "macrores_log2FoldChange"
+#' assay_name <- "counts"
+#' gg <- map_se_onto_graph(g, se_macrophage, anno_df_string, assay_name = "counts")
+map_se_onto_graph <- function(g,
+                              se,
+                              annotation_df,
+                              rowdata_to_map = NULL,
+                              assay_cols = NULL,
+                              assay_name) {
+
+  # 
+  common_feats <- intersect(rownames(se), V(g)$name)
+  if (!length(common_feats)) {
+    stop("no features in common")
+  }
+  
+  # TODO: checks on annotation df provided
+  
+  # if not specifying the rowdata or the samples, map them all
+  if (is.null(rowdata_to_map)) {
+    rowdata_to_map <- colnames(rowData(se))
+  } else if (!all(rowdata_to_map %in% colnames(rowData(se)))) {
+    stop("Invalid rowdata_to_map provided")
+  }
+  
+  if (is.null(assay_cols)) {
+    assay_cols <- colnames(se)
+  } else if (!all(assay_cols %in% colnames(se))) {
+    stop("Invalid assay_cols provided")
+  }
+  
+  # TODO: checks here
+  assay_to_use <- assays(se)[[assay_name]]
+  
+  # TODO: checks on anno object provided
+  
+  prefix <- ""
+  
+  node_id_type <- "ensembl_id"
+  
+  for (anno_col in colnames(annotation_df)) {
+    attr_name <- paste0("anno_", anno_col)
+    matched_anno_info <- annotation_df[match(common_feats, annotation_df[, node_id_type]), ]
+    g <- set_vertex_attr(g, 
+                         name = attr_name,
+                         value = matched_anno_info[, anno_col])
+  }
+  
+  
+  
+  # mapping the rowdata columns onto the nodes
+  for (rd in rowdata_to_map) {  
+    attr_name <- paste0(prefix, rd)
+    g <- set_vertex_attr(g, 
+                         name = attr_name,
+                         value = rowData(se)[common_feats, rd])
+  }
+  
+  
+  # mapping the assay data onto nodes
+  for (ad in assay_cols) {  
+    attr_name <- paste0(prefix, ad)
+    g <- set_vertex_attr(g, 
+                         name = attr_name,
+                         value = assay_to_use[common_feats, ad])
+  }
+  
+  return(g)
+}
+
+
+# g in this case is the "well enriched of info" graph
+# example:
+# color_nodes_by <- "macrores_log2FoldChange"
+# use like
+#' # from above
+#' iplot_graph(gg, color_nodes_by = "macrores_log2FoldChange") 
+iplot_graph <- function(g,
+                        color_nodes_by,
+                        add_tooltip = TRUE) {
+  
+  # using the graph object with values mapped to the nodes avoid having to do matching here
+  
+  mypal <- rev(scales::alpha(
+    colorRampPalette(RColorBrewer::brewer.pal(name = "RdBu", 11))(50), 0.4
+  ))
+  
+  # TODO: check it is available - otherwise leave colors alone?
+  attr_to_plot <- color_nodes_by
+  
+  attr_maxlimits <- max(abs(range(vertex_attr(g, attr_to_plot))))
+  
+  V(g)$color <- GeneTonic::map2color(
+    vertex_attr(g, attr_to_plot), 
+    mypal, 
+    limits = c(-attr_maxlimits, attr_maxlimits)
+  )
+  
+  # TODO: the edges should actually stay monochrome-grey...
+  
+  # using the info from the annotation "inside the graph"
+  gene_ids_backup <- V(g)$name
+  gene_names <- vertex_attr(g, "anno_gene_symbol")
+  new_names <- gene_names
+  new_names[is.na(new_names)] <- gene_ids_backup[is.na(new_names)]
+  V(g)$name <- new_names
+  
+  
+  rank_gs <- rank(V(g)$name)
+  g <- permute.vertices(g, rank_gs)
+  
+  if (add_tooltip) {
+    # title for tooltips
+    V(g)$title <- NA
+    
+    V(g)$title <- paste0(
+      "<h4>", V(g)$name, "</h4><br>",
+      attr_to_plot,
+      " = ", format(round(vertex_attr(g, attr_to_plot), 2), nsmall = 2)
+    )
+  }
+  
+  ig <- visNetwork::visIgraph(g) |> 
+    visNetwork::visOptions(highlightNearest = list(enabled = TRUE,
+                                                   degree = 1,
+                                                   hover = TRUE),
+                           nodesIdSelection = TRUE)
+  
+  return(ig)
+}
+
