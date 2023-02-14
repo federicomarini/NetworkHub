@@ -129,3 +129,157 @@ urlmaker_BIOGRID <- function(type = "PPI",   #could be also protein info
 }
 
 
+
+# get data from Biogrid --------------------------------------------------
+
+#' Title
+#'
+#' @param species 
+#' @param version 
+#' @param cache 
+#' @param remap_identifiers 
+#' @param remap_to 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' # main usage: -------------------------------------------------------------
+#' ppi_biogrid_human <- get_networkdata_BIOGRID(species = "Homo sapiens",
+#'                                             version = "4.4.218")
+#' dim(ppi_biogrid_human)
+#' head(ppi_biogrid_human)
+#' pryr::object_size(ppi_biogrid_human)
+#' 
+#' ppi_biogrid_mouse <- get_networkdata_BIOGRID(species = "Mus musculus",
+#'                                             version = "4.4.218")
+#' dim(ppi_biogrid_mouse)
+#' head(ppi_biogrid_mouse)
+#' pryr::object_size(ppi_biogrid_mouse)
+#' 
+get_networkdata_BIOGRID <- function(species,
+                                    version = "4.4.218",
+                                    cache = TRUE,
+                                    remap_identifiers = TRUE,
+                                    remap_to = c("ENSEMBL", "gene_symbol"
+                                                 #, "ENTREZ"
+                                    ),
+                                    verbose = TRUE) {
+  
+  # checking for the species...
+  if (!(species %in% BIOGRID_species)) {
+    stop("Species not found")
+  }
+  
+  rname <- paste0(
+    "BIOGRID_",
+    "all",
+    "_v",
+    version
+  )
+  
+  if (cache) {
+    # tries to fetch from the cache
+    message("Trying to fetch from cache...")
+    ### Here: forcing update to FALSE
+    network_file <- fetch_NetworkHub(rname, update = FALSE)
+  }
+  
+  if (!cache | is.null(network_file)) {
+    # retrieves the file for the first time
+    message("Retrieving to cache...")
+    # buildup from BIOGRID url
+    biogrid_url <- 
+      urlmaker_BIOGRID(type = "PPI",
+                        version = version)
+    
+    
+    network_file <- cache_NetworkHub(rname = rname,
+                                     fpath = biogrid_url)
+  }
+  
+  # read in the resource, whether cached or freshly downloaded
+  bga_ppis <- vroom::vroom(network_file)
+  
+  # here: filter on the organisms
+  # two columns are to be checked, the one with the organism of the interactors
+  # in AT LEAST one of the two, the species specified must be in it
+  ## so it can be that some interactions are "mixed" - could lead to weird results in the graph then?
+  ### maybe make it an option to include only interactions among proteins of the same species
+  
+  organism_entries <- 
+    bga_ppis$`Organism Name Interactor A` == species | bga_ppis$`Organism Name Interactor B` == species
+  
+  organism_only_entries <- 
+    bga_ppis$`Organism Name Interactor A` == species & bga_ppis$`Organism Name Interactor B` == species
+  
+  bgo_ppis <- bga_ppis[organism_entries, ]
+  
+  colnames(bgo_ppis)
+  
+  bgo_ppis$entrezid_1 <- bgo_ppis$`Entrez Gene Interactor A`
+  bgo_ppis$entrezid_2 <- bgo_ppis$`Entrez Gene Interactor B`
+  bgo_ppis$gene_1 <- bgo_ppis$`Official Symbol Interactor A`
+  bgo_ppis$gene_2 <- bgo_ppis$`Official Symbol Interactor B`
+  
+  # double checking it is the approach biogrid also follows
+  # cfr
+  ### dim(bgo_ppis)
+  ### dim(bga_ppis)
+  ### dim(vroom::vroom("dev/BIOGRID-ORGANISM-4.4.218.tab3/BIOGRID-ORGANISM-Homo_sapiens-4.4.218.tab3.txt"))
+    
+  # do anything one needs to do on the individual columns
+  
+  #### # do a remapping of the used identifiers?
+  #### if (remap_identifiers) {
+  ####   accessory_info <- get_accessoryinfo_STRINGDB(species = species,
+  ####                                                version = version)
+  ####   
+  ####   # reshape and process for the matching
+  ####   ## many info are not really soooo useful for our "usual" matching of identifiers
+  ####   accessory_info_df <- data.frame(
+  ####     protein_id = unique(accessory_info$`#string_protein_id`),
+  ####     row.names = unique(accessory_info$`#string_protein_id`)
+  ####   )
+  ####   
+  ####   # prefill with NAs
+  ####   accessory_info_df$ensembl_id <- NA
+  ####   accessory_info_df$gene_symbol <- NA
+  ####   # accessory_info_df$entrez_id <- NA
+  ####   
+  ####   df_ensembl <- accessory_info[accessory_info$source == "Ensembl_gene", ]
+  ####   df_genesymbol <- accessory_info[accessory_info$source == "Ensembl_EntrezGene", ]
+  ####   # df_entrez <- accessory_info[accessory_info$source == "Ensembl_EntrezGene", ]
+  ####   ## entrez is not always the same col name!!!
+  ####   
+  ####   accessory_info_df$ensembl_id <- 
+  ####     df_ensembl$alias[match(accessory_info_df$protein_id, df_ensembl$`#string_protein_id`)]
+  ####   accessory_info_df$gene_symbol <- 
+  ####     df_genesymbol$alias[match(accessory_info_df$protein_id, df_genesymbol$`#string_protein_id`)]
+  ####   # accessory_info_df$entrez_id
+  ####   
+  ####   # maybe just do not rename but simply add that kind of info, based on the matching that is given
+  ####   # in accessory_info_df
+  ####   
+  ####   sdb_ppis$geneid_1 <- accessory_info_df[sdb_ppis$protein1, ][["ensembl_id"]]
+  ####   sdb_ppis$geneid_2 <- accessory_info_df[sdb_ppis$protein2, ][["ensembl_id"]] 
+  ####   sdb_ppis$gene_1 <- accessory_info_df[sdb_ppis$protein1, ][["gene_symbol"]] 
+  ####   sdb_ppis$gene_2 <- accessory_info_df[sdb_ppis$protein2, ][["gene_symbol"]] 
+  ####   
+  ####   # alternative: point towards a resource such as annotation hub or the orgDb packages
+  ####   ## TODO?
+  ####   ## Yet: this can also be done AFTERWARDS, in any manner desired
+  #### }
+  
+  ## thinking out loud: best way to deal with a graph:
+  ## have the nodes to be stuck as ensembl ids, and the gene symbols as a label
+  ## if not available, go with a fallback solution which would be the ensembl id itself
+  
+  # rename columns to make it consistent with others (? will see how)
+  
+  # option: how to add the info from ENSEMBL if missing?
+  
+  # optional: make it "essential"? like, interactors AND a score (if present)
+  
+  return(bgo_ppis)
+}
