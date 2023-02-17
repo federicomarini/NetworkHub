@@ -542,6 +542,7 @@ iplot_graph <- function(g,
   }
   
   ig <- visNetwork::visIgraph(g) |> 
+    visNetwork::visEdges(color = list(color = "#88888888")) |> 
     visNetwork::visOptions(highlightNearest = list(enabled = TRUE,
                                                    degree = 1,
                                                    hover = TRUE),
