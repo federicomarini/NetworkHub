@@ -255,11 +255,12 @@ V(de_graph)$title <- paste0(
   "logFC = ", format(round(V(de_graph)$log2FC, 2), nsmall = 2)
 )
 
-visNetwork::visIgraph(de_graph) %>%
+visNetwork::visIgraph(de_graph) |> 
+  visNetwork::visEdges(color = list(color = "#88888888")) |> 
   visNetwork::visOptions(highlightNearest = list(enabled = TRUE,
-                                     degree = 1,
-                                     hover = TRUE),
-             nodesIdSelection = TRUE)
+                                                 degree = 1,
+                                                 hover = TRUE),
+                         nodesIdSelection = TRUE)
 ```
 
 Coloring "different things" - a la payload, using the halo?
