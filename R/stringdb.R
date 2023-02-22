@@ -1,3 +1,5 @@
+# handling data retrieval from STRING ------------------------------------------
+
 # utility functions -------------------------------------------------------
 
 #' Title
