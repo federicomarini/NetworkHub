@@ -99,11 +99,11 @@ urlmaker_STRINGDB <- function(type = "PPI",   #could be also protein info
 #' pryr::object_size(ppi_human_v11.5)
 #' 
 #' 
-#' ppi_human_v11.0 <- get_networkdata_STRINGDB(species = "Homo sapiens",
-#'                                             version = "11.0")
-#' dim(ppi_human_v11.0)
-#' head(ppi_human_v11.0)
-#' pryr::object_size(ppi_human_v11.0)
+#' ### ppi_human_v11.0 <- get_networkdata_STRINGDB(species = "Homo sapiens",
+#' ###                                             version = "11.0")
+#' ### dim(ppi_human_v11.0)
+#' ### head(ppi_human_v11.0)
+#' ### pryr::object_size(ppi_human_v11.0)
 #' 
 #' ppi_mouse_v11.5 <- get_networkdata_STRINGDB(species = "Mus musculus",
 #'                                             version = "11.5")
@@ -322,27 +322,26 @@ create_annotation_from_STRINGDBaccessory <- function(accessory_info) {
 #' 
 #' ## todo: change this one with the matching
 #' 
-#' library(STRINGdb)
-#' string_db <- STRINGdb$new(version="11", species=9606,
-#'   score_threshold=200, input_directory="sdb_human")
-#' data(diff_exp_example1)
-#' head(diff_exp_example1)
-#' example1_mapped <- string_db$map(diff_exp_example1, "gene", 
-#'                              removeUnmappedRows = TRUE)
-#' hits <- example1_mapped$STRING_id[1:200]
-#' hits
-#' 
-#' top_proteins <- hits
-#' 
-#' network_all <- build_graph_STRINGDB(graph_data = graph_data, 
-#'                      output_format = "igraph",
-#'                      min_score_threshold = 600)
-#'                      
-#' network_desubset <- build_graph_STRINGDB(graph_data = graph_data, 
-#'                      output_format = "igraph",
-#'                      min_score_threshold = 600,
-#'                      subset_nodes = top_proteins)
-#'                      
+#' ### library(STRINGdb)
+#' ### string_db <- STRINGdb$new(version="11", species=9606,
+#' ###   score_threshold=200, input_directory="sdb_human")
+#' ### data(diff_exp_example1)
+#' ### head(diff_exp_example1)
+#' ### example1_mapped <- string_db$map(diff_exp_example1, "gene", 
+#' ###                              removeUnmappedRows = TRUE)
+#' ### hits <- example1_mapped$STRING_id[1:200]
+#' ### hits
+#' ### 
+#' ### top_proteins <- hits
+#' ### 
+#' ### network_all <- build_graph_STRINGDB(graph_data = graph_data, 
+#' ###                      output_format = "igraph",
+#' ###                      min_score_threshold = 600)
+#' ###                      
+#' ### network_desubset <- build_graph_STRINGDB(graph_data = graph_data, 
+#' ###                      output_format = "igraph",
+#' ###                      min_score_threshold = 600,
+#' ###                      subset_nodes = top_proteins)
 build_graph_STRINGDB <- function(graph_data,
                                  output_format = c("igraph", "graphnel", "sif"),
                                  min_score_threshold = NULL,
