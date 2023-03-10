@@ -35,10 +35,13 @@ initialize_NetworkHub <- function(nh_cachedir = "NetworkHub") {
 #'
 #' @examples
 #' # for example, retrieve something from stringDB
-#' # "https://stringdb-static.org/download/protein.links.full.v11.5/9606.protein.links.full.v11.5.txt.gz"
+#' 
+#' url_sdb <- urlmaker_STRINGDB("PPI", "Homo sapiens", "11.5")
+#' url_sdb
+#' 
 #' cache_NetworkHub(
 #'   rname = "STRINGDB_Homo sapiens_v11.5",
-#'   fpath = "https://stringdb-static.org/download/protein.links.full.v11.5/9606.protein.links.full.v11.5.txt.gz"
+#'   fpath = url_sdb
 #' )
 cache_NetworkHub <- function(rname,
                              fpath,
